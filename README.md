@@ -1,4 +1,6 @@
 # haribote-cli
+[![GitHub License](https://img.shields.io/github/license/macaroni10y/haribote-cli)](https://github.com/macaroni10y/haribote-cli/blob/main/LICENSE)
+[![Author](https://img.shields.io/badge/Author-macaroni10y-pink)](https://github.com/macaroni10y)
 
 A simple Go CLI tool for generating placeholder images.
 
