@@ -11,6 +11,7 @@ import (
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
+	xdraw "golang.org/x/image/draw"
 )
 
 // PlaceholderConfig holds configuration for generating placeholder images
@@ -28,19 +29,67 @@ func GeneratePlaceholderImage(config PlaceholderConfig) error {
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: config.BgColor}, image.Point{}, draw.Src)
 
 	text := fmt.Sprintf("%d x %d", config.Width, config.Height)
+	currentFace := basicfont.Face7x13
 
-	point := fixed.Point26_6{
-		X: fixed.Int26_6((config.Width - len(text)*7) / 2 * 64),
-		Y: fixed.Int26_6((config.Height / 2) * 64),
+	textBounds, _ := font.BoundString(currentFace, text)
+	nativeTextRenderWidth := (textBounds.Max.X - textBounds.Min.X).Ceil()
+	nativeTextRenderHeight := (textBounds.Max.Y - textBounds.Min.Y).Ceil()
+
+	if nativeTextRenderWidth <= 0 {
+		nativeTextRenderWidth = 1
+	}
+	if nativeTextRenderHeight <= 0 {
+		fontMetrics := currentFace.Metrics()
+		nativeTextRenderHeight = fontMetrics.Height.Ceil()
+		if nativeTextRenderHeight <= 0 {
+			nativeTextRenderHeight = 13 // Fallback to basicfont height
+		}
 	}
 
-	d := &font.Drawer{
-		Dst:  img,
+	tempImg := image.NewRGBA(image.Rect(0, 0, nativeTextRenderWidth, nativeTextRenderHeight))
+	xdraw.Draw(tempImg, tempImg.Bounds(), image.Transparent, image.Point{}, xdraw.Src)
+
+	tempDrawerDotX := -textBounds.Min.X
+	tempDrawerDotY := -textBounds.Min.Y
+	tempDrawer := &font.Drawer{
+		Dst:  tempImg,
 		Src:  image.NewUniform(config.TextColor),
-		Face: basicfont.Face7x13, // Using a basic font
-		Dot:  point,
+		Face: currentFace,
+		Dot:  fixed.Point26_6{X: tempDrawerDotX, Y: tempDrawerDotY},
 	}
-	d.DrawString(text)
+	tempDrawer.DrawString(text)
+
+	targetScaledTextWidth := float64(config.Width) * 0.7
+	if float64(nativeTextRenderWidth) > targetScaledTextWidth {
+		targetScaledTextWidth = float64(nativeTextRenderWidth)
+	}
+	if targetScaledTextWidth < 10 {
+		targetScaledTextWidth = 10
+	}
+
+	scaleFactor := 1.0
+	if nativeTextRenderWidth > 0 {
+		scaleFactor = targetScaledTextWidth / float64(nativeTextRenderWidth)
+	}
+	if scaleFactor <= 0 {
+		scaleFactor = 1.0
+	}
+
+	finalScaledWidth := int(float64(nativeTextRenderWidth) * scaleFactor)
+	finalScaledHeight := int(float64(nativeTextRenderHeight) * scaleFactor)
+
+	if finalScaledWidth <= 0 {
+		finalScaledWidth = 1
+	}
+	if finalScaledHeight <= 0 {
+		finalScaledHeight = 1
+	}
+
+	dstX := (config.Width - finalScaledWidth) / 2
+	dstY := (config.Height - finalScaledHeight) / 2
+	dstRect := image.Rect(dstX, dstY, dstX+finalScaledWidth, dstY+finalScaledHeight)
+
+	xdraw.ApproxBiLinear.Scale(img, dstRect, tempImg, tempImg.Bounds(), xdraw.Over, nil)
 
 	outFile, err := os.Create(config.Filename)
 	if err != nil {
