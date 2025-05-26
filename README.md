@@ -4,6 +4,10 @@
 
 A simple Go CLI tool for generating placeholder images.
 
+## Example
+![test](https://github.com/user-attachments/assets/81f8047a-89de-4b30-9437-963b0997da3c)
+
+
 ## Overview
 
 haribote-cli is a command-line tool that quickly generates placeholder images with specified dimensions and colors. It's useful when you need temporary image files during web development or prototyping.
